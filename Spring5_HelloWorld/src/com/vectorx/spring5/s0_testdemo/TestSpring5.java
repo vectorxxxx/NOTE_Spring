@@ -1,6 +1,5 @@
-package com.vectorx.spring5.testdemo;
+package com.vectorx.spring5.s0_testdemo;
 
-import com.vectorx.spring5.User;
 import org.junit.Test;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;

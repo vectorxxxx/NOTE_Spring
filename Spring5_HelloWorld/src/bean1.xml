@@ -2,6 +2,16 @@
 <beans xmlns="http://www.springframework.org/schema/beans"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
-    <!--配置User对象-->
-    <bean id="user" class="com.vectorx.spring5.User"></bean>
+    <!-- 1、配置User对象创建 -->
+    <bean id="user" class="com.vectorx.spring5.s0_testdemo.User"></bean>
+
+    <!-- 2、Setter方法注入属性 -->
+    <bean id="book" class="com.vectorx.spring5.s1_xml.setter.Book">
+        <!-- 使用property完成属性注入
+            name: 类中属性名称
+            value: 向属性中注入的值
+        -->
+        <property name="bname" value="Spring实战 第5版"/>
+        <property name="bauthor" value="克雷格·沃斯（Craig Walls）"/>
+    </bean>
 </beans>

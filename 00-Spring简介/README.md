@@ -68,11 +68,11 @@ Spring 特点
 
 - 复制右侧地址或直接点击打开：[https://repo.spring.io/ui/native/release/org/springframework/spring/](https://repo.spring.io/ui/native/release/org/springframework/spring/)，找到所需版本点击进入
 
-  ![image-20220213134524409](https://s2.loli.net/2022/02/15/q3BHgDYStQAoeyF.png)
+  ![image-20220227082715411](https://s2.loli.net/2022/02/27/mstUQ5uwGRIgoWv.png)
 
 - 点击`Download Link`一栏链接，即可进行下载（网络问题，可能很慢）
 
-  ![image-20220213134802702](https://s2.loli.net/2022/02/15/8QetzUSuZjcmNfA.png)
+  ![image-20220227082754835](https://s2.loli.net/2022/02/27/9b6UZFxBf5pI7ti.png)
 
 - 下载完毕，进行解压
 

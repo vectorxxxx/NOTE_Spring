@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+
+    <!-- 集合类型属性注入 -->
+    <bean id="stu" class="com.vectorx.spring5.s5_xml.collection.Stu">
+        <!--  1 数组属性注入  -->
+        <property name="arrs">
+            <array>
+                <value>数组</value>
+                <value>属性</value>
+                <value>注入</value>
+            </array>
+        </property>
+        <!--  2 list属性注入  -->
+        <property name="lists">
+            <list>
+                <value>list</value>
+                <value>属性</value>
+                <value>注入</value>
+            </list>
+        </property>
+        <!--  3 map属性注入  -->
+        <property name="maps">
+            <map>
+                <entry key="k1" value="v1"></entry>
+                <entry key="k2" value="v2"></entry>
+                <entry key="k3" value="v3"></entry>
+            </map>
+        </property>
+        <!--  4 set属性注入  -->
+        <property name="sets">
+            <set>
+                <value>set</value>
+                <value>属性</value>
+                <value>注入</value>
+            </set>
+        </property>
+        <!--注入 List 类型属性值，值为对象-->
+        <property name="lists2">
+            <list>
+                <ref bean="course1"></ref>
+                <ref bean="course2"></ref>
+                <ref bean="course3"></ref>
+            </list>
+        </property>
+    </bean>
+
+    <bean id="course1" class="com.vectorx.spring5.s5_xml.collection.Course">
+        <property name="cname" value="c1"></property>
+    </bean>
+    <bean id="course2" class="com.vectorx.spring5.s5_xml.collection.Course">
+        <property name="cname" value="c2"></property>
+    </bean>
+    <bean id="course3" class="com.vectorx.spring5.s5_xml.collection.Course">
+        <property name="cname" value="c3"></property>
+    </bean>
+
+    <!--提取属性注入-->
+    <util:list id="utilList">
+        <value>111</value>
+        <value>222</value>
+        <value>333</value>
+    </util:list>
+    <!--提取属性注入使用-->
+    <bean id="stu2" class="com.vectorx.spring5.s5_xml.collection.Stu">
+        <property name="lists" ref="utilList"></property>
+    </bean>
+</beans>

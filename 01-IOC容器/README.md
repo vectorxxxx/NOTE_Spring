@@ -320,7 +320,6 @@ public class Book {
         this.bauthor = bauthor;
     }
 }
-
 ```
 
 ② 在 Spring 配置文件中配置对象创建，配置属性注入
@@ -332,12 +331,378 @@ public class Book {
             name: 类中属性名称
             value: 向属性中注入的值
     -->
-    <property name="bname" value="Spring实战 第5版"/>
-    <property name="bauthor" value="克雷格·沃斯（Craig Walls）"/>
+    <property name="bname" value="Spring实战 第5版"></property>
+    <property name="bauthor" value="克雷格·沃斯（Craig Walls）"></property>
 </bean>
 ```
 
 #### 2）通过有参构造注入
 
+① 创建类，定义属性，创建属性对应有参构造方法
 
+```java
+public class Orders {
+    private String oname;
+    private String address;
+
+    public Orders(String oname, String address) {
+        this.oname = oname;
+        this.address = address;
+    }
+}
+```
+
+② 在 Spring 配置文件中配置对象创建，配置有参构造注入
+
+```xml
+<!-- 3、有参构造注入属性 -->
+<bean id="order" class="com.vectorx.spring5.s2_xml.constructor.Orders">
+    <constructor-arg name="oname" value="Spring微服务实战"></constructor-arg>
+    <constructor-arg name="address" value="[美]约翰·卡内尔（John Carnell）"></constructor-arg>
+</bean>
+```
+
+或者使用`index`属性代替`name`属性，索引值大小是几就表示有参构造中的第几个参数（索引从0开始）
+
+```xml
+<!-- 3、有参构造注入属性 -->
+<bean id="order" class="com.vectorx.spring5.s2_xml.constructor.Orders">
+    <constructor-arg index="0" value="冰墩墩"></constructor-arg>
+    <constructor-arg index="1" value="Peking"></constructor-arg>
+</bean>
+```
+
+#### 3）p 名称空间注入（了解）
+
+① 基于 p 名称空间注入，可以简化基于 xml 的配置方式
+
+在`bean1.xml`配置文件中添加 p 名称空间：`xmlns:p="http://www.springframework.org/schema/p"`，如下
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+</beans>
+```
+
+在`bean`标签中进行属性注入操作
+
+```xml
+<!-- 4、p名称空间注入属性 -->
+<bean id="book1" class="com.vectorx.spring5.s1_xml.setter.Book" p:bname="SpringBoot实战" p:bauthor="[美]克雷格·沃斯"></bean>
+```
+
+需要注意的是：<mark>p 名称空间只能进行属性注入</mark>
+
+### 4.3、基于 XML 方式注入其他类型属性
+
+#### 1）字面量
+
+- `null`值：使用`<null>`
+
+  ```xml
+  <bean id="book2" class="com.vectorx.spring5.s1_xml.setter.Book">
+      <property name="bname" value="Spring实战 第5版"></property>
+      <property name="bauthor">
+          <null></null>
+      </property>
+  </bean>
+  ```
+
+- 属性值包含特殊符号：有两种方式
+
+  - 使用转义字符，如`&lt;&gt;`标识`<>`
+
+    ```xml
+    <!-- 字面量：property方式注入含有特殊符号的属性 -->
+    <bean id="book3" class="com.vectorx.spring5.s1_xml.setter.Book">
+        <property name="bname" value="Spring实战 第5版"></property>
+        <property name="bauthor" value="&lt;Test&gt;"</property>
+    </bean>
+    ```
+
+  - 使用`CDATA`结构，如`<![CDATA[<Test>]]>`
+
+    ```xml
+    <!-- 字面量：property方式注入含有特殊符号的属性 -->
+    <bean id="book4" class="com.vectorx.spring5.s1_xml.setter.Book">
+        <property name="bname" value="Spring实战 第5版"></property>
+        <property name="bauthor">
+            <value><![CDATA[<Test>]]></value>
+        </property>
+    </bean>
+    ```
+
+#### 2）外部 Bean
+
+① 创建两个类：`Service`类和`Dao`类
+
+```java
+public interface UserDao {
+    void update();
+}
+public class UserDaoImpl implements UserDao{
+    @Override
+    public void update() {
+        System.out.println("dao update...");
+    }
+}
+```
+
+② 在`Service`中调用`Dao`中的方法
+
+```java
+public class UserService {
+    private UserDao userDao;
+
+    public void setUserDao(UserDao userDao) {
+        this.userDao = userDao;
+    }
+
+    public void updateUser(){
+        System.out.println("service update...");
+        userDao.update();
+    }
+}
+```
+
+③ 在 Spring 配置文件中进行配置
+
+```xml
+<!--  1、配置service和dao创建  -->
+<bean id="userService" class="com.vectorx.spring5.s3_xml.outerbean.service.UserService">
+    <!-- 2、注入userDao对象
+               name属性：类里面属性名称
+               ref属性：创建userDao对象bean标签id值
+       -->
+    <property name="userDao" ref="userDaoImpl"></property>
+</bean>
+<bean id="userDaoImpl" class="com.vectorx.spring5.s3_xml.outerbean.dao.UserDaoImpl"></bean>
+```
+
+#### 3）内部 Bean
+
+① 一对多关系：部门和员工。部门里有多个员工，一个员工属于一个部门。部门是一的一方，员工是多的一方
+
+② 在实体类之间表示一对多关系。在员工类中使用对象类型表示所属部门
+
+```java
+public class Dept {
+    private String dname;
+    
+    public String getDname() {
+        return dname;
+    }
+    public void setDname(String dname) {
+        this.dname = dname;
+	}
+}
+public class Emp {
+    private String ename;
+    private String gender;
+    private Dept dept;
+
+    public void setDept(Dept dept) {
+        this.dept = dept;
+    }
+    public String getEname() {
+        return ename;
+    }
+    public void setEname(String ename) {
+        this.ename = ename;
+    }
+    public String getGender() {
+        return gender;
+    }
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+}
+```
+
+③ 在 Spring 配置文件中进行配置
+
+```xml
+<bean id="emp1" class="com.vectorx.spring5.s4_xml.innerbean.Emp">
+    <property name="ename" value="Lucy"></property>
+    <property name="gender" value="female"></property>
+    <property name="dept">
+        <bean id="dept1" class="com.vectorx.spring5.s4_xml.innerbean.Dept">
+            <property name="dname" value="Develop Department"></property>
+        </bean>
+    </property>
+</bean>
+```
+
+#### 4）级联赋值
+
+第一种写法
+
+```xml
+<!-- 级联赋值 -->
+<bean id="emp2" class="com.vectorx.spring5.s4_xml.innerbean.Emp">
+    <property name="ename" value="Nancy"></property>
+    <property name="gender" value="female"></property>
+    <property name="dept" ref="dept2"></property>
+</bean>
+<bean id="dept2" class="com.vectorx.spring5.s4_xml.innerbean.Dept">
+    <property name="dname" value="Sallery Department"></property>
+</bean>
+```
+
+第二种写法`<property name="dept.dname" value="Manage Department"></property>`
+
+```xml
+<!-- 级联赋值 -->
+<bean id="emp2" class="com.vectorx.spring5.s4_xml.innerbean.Emp">
+    <property name="ename" value="Nancy"></property>
+    <property name="gender" value="female"></property>
+    <property name="dept" ref="dept2"></property>
+    <property name="dept.dname" value="Manage Department"></property>
+</bean>
+<bean id="dept2" class="com.vectorx.spring5.s4_xml.innerbean.Dept">
+    <property name="dname" value="Sallery Department"></property>
+</bean>
+```
+
+这种写法可以对外部`Bean`的属性值进行覆盖，但前提是要有`dept`的`Getter`方法
+
+```java
+public Dept getDept() {
+    return dept;
+}
+```
+
+否则 XML 文件就会爆红
+
+![image-20220227110515160](https://s2.loli.net/2022/02/27/9VnbcAFEGeBwIqi.png)
+
+强行使用就会报如下错误
+
+```java
+Caused by: org.springframework.beans.NotWritablePropertyException: Invalid property 'dept.dname' of bean class [com.vectorx.spring5.s4_xml.innerbean.Emp]: Nested property in path 'dept.dname' does not exist; nested exception is org.springframework.beans.NotReadablePropertyException: Invalid property 'dept' of bean class [com.vectorx.spring5.s4_xml.innerbean.Emp]: Bean property 'dept' is not readable or has an invalid getter method: Does the return type of the getter match the parameter type of the setter?
+```
+
+### 4.3、基于 XML 方式注入集合属性
+
+- 1）注入数组类型属性
+- 2）注入 List 集合类型属性
+- 3）注入 Map 集合类型属性
+
+① 创建类，定义数组、list、map、set 类型属性，生成对应 setter 方法
+
+```java
+public class Stu {
+    private String[] arrs;
+    private List<String> lists;
+    private Map<String, String> maps;
+    private Set<String> sets;
+    public void setArrs(String[] arrs){
+        this.arrs = arrs;
+    }
+    public void setLists(List<String> lists){
+        this.lists = lists;
+    }
+    public void setMaps(Map<String, String> maps){
+        this.maps = maps;
+    }
+    public void setSets(Set<String> sets){
+        this.sets = sets;
+    }
+}
+```
+
+② 在 Spring 配置文件中进行配置
+
+```xml
+<!-- 集合类型属性注入 -->
+<bean id="stu" class="com.vectorx.spring5.s5_xml.collection.Stu">
+    <!--  1 数组属性注入  -->
+    <property name="arrs">
+        <array>
+            <value>数组</value>
+            <value>属性</value>
+            <value>注入</value>
+        </array>
+    </property>
+    <!--  2 list属性注入  -->
+    <property name="lists">
+        <list>
+            <value>list</value>
+            <value>属性</value>
+            <value>注入</value>
+        </list>
+    </property>
+    <!--  3 map属性注入  -->
+    <property name="maps">
+        <map>
+            <entry key="k1" value="v1"></entry>
+            <entry key="k2" value="v2"></entry>
+            <entry key="k3" value="v3"></entry>
+        </map>
+    </property>
+    <!--  4 set属性注入  -->
+    <property name="sets">
+        <set>
+            <value>set</value>
+            <value>属性</value>
+            <value>注入</value>
+        </set>
+    </property>
+</bean>
+```
+
+- 4）注入 List 类型属性值，值为对象
+
+```xml
+<bean id="stu" class="com.vectorx.spring5.s5_xml.collection.Stu">
+    <!--注入 List 类型属性值，值为对象-->
+    <property name="lists2">
+        <list>
+            <ref bean="course1"></ref>
+            <ref bean="course2"></ref>
+            <ref bean="course3"></ref>
+        </list>
+    </property>
+</bean>
+<bean id="course1" class="com.vectorx.spring5.s5_xml.collection.Course">
+    <property name="cname" value="c1"></property>
+</bean>
+<bean id="course2" class="com.vectorx.spring5.s5_xml.collection.Course">
+    <property name="cname" value="c2"></property>
+</bean>
+<bean id="course3" class="com.vectorx.spring5.s5_xml.collection.Course">
+    <property name="cname" value="c3"></property>
+</bean>
+```
+
+- 5）把集合注入部分提取出来
+
+① 在 Spring 配置文件中引入`util`命名空间
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+</beans>
+```
+
+② 使用`util`标签完成 list 集合注入提取
+
+```xml
+<!--提取属性注入-->
+<util:list id="utilList">
+    <value>111</value>
+    <value>222</value>
+    <value>333</value>
+</util:list>
+<!--提取属性注入使用-->
+<bean id="stu2" class="com.vectorx.spring5.s5_xml.collection.Stu">
+    <property name="lists" ref="utilList"></property>
+</bean>
+```
 

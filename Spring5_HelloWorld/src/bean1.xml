@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <beans xmlns="http://www.springframework.org/schema/beans"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:p="http://www.springframework.org/schema/p"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
     <!-- 1、配置User对象创建 -->
     <bean id="user" class="com.vectorx.spring5.s0_testdemo.User"></bean>
@@ -11,7 +12,41 @@
             name: 类中属性名称
             value: 向属性中注入的值
         -->
-        <property name="bname" value="Spring实战 第5版"/>
-        <property name="bauthor" value="克雷格·沃斯（Craig Walls）"/>
+        <property name="bname" value="Spring实战 第5版"></property>
+        <property name="bauthor" value="克雷格·沃斯（Craig Walls）"></property>
+    </bean>
+
+    <!-- 3、有参构造方法注入属性 -->
+    <bean id="orders" class="com.vectorx.spring5.s2_xml.constructor.Orders">
+        <!--<constructor-arg name="oname" value="Spring微服务实战"></constructor-arg>-->
+        <!--<constructor-arg name="address" value="[美]约翰·卡内尔（John Carnell）"></constructor-arg>-->
+        <constructor-arg index="0" value="Spring微服务实战"></constructor-arg>
+        <constructor-arg index="1" value="[美]约翰·卡内尔（John Carnell）"></constructor-arg>
+    </bean>
+
+    <!-- 4、p名称空间注入属性 -->
+    <bean id="book1" class="com.vectorx.spring5.s1_xml.setter.Book" p:bname="SpringBoot实战" p:bauthor="[美]克雷格·沃斯"></bean>
+
+
+    <!-- 字面量：property方式注入null属性 -->
+    <bean id="book2" class="com.vectorx.spring5.s1_xml.setter.Book">
+        <property name="bname" value="Spring实战 第5版"></property>
+        <property name="bauthor">
+            <null></null>
+        </property>
+    </bean>
+
+    <!-- 字面量：property方式注入含有特殊符号的属性 -->
+    <bean id="book3" class="com.vectorx.spring5.s1_xml.setter.Book">
+        <property name="bname" value="Spring实战 第5版"></property>
+        <property name="bauthor" value="&lt;Test&gt;"></property>
+    </bean>
+
+    <!-- 字面量：property方式注入含有特殊符号的属性 -->
+    <bean id="book4" class="com.vectorx.spring5.s1_xml.setter.Book">
+        <property name="bname" value="Spring实战 第5版"></property>
+        <property name="bauthor">
+            <value><![CDATA[<Test>]]></value>
+        </property>
     </bean>
 </beans>

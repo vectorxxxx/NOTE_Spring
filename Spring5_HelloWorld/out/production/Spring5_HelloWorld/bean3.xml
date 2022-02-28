@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <!-- 内部Bean -->
+    <bean id="emp1" class="com.vectorx.spring5.s4_xml.innerbean.Emp">
+        <property name="ename" value="Lucy"></property>
+        <property name="gender" value="female"></property>
+        <property name="dept">
+            <bean id="dept1" class="com.vectorx.spring5.s4_xml.innerbean.Dept">
+                <property name="dname" value="Develop Department"></property>
+            </bean>
+        </property>
+    </bean>
+
+    <!-- 级联赋值 -->
+    <bean id="emp2" class="com.vectorx.spring5.s4_xml.innerbean.Emp">
+        <property name="ename" value="Nancy"></property>
+        <property name="gender" value="female"></property>
+        <property name="dept" ref="dept2"></property>
+        <property name="dept.dname" value="Manage Department"></property>
+    </bean>
+    <bean id="dept2" class="com.vectorx.spring5.s4_xml.innerbean.Dept">
+        <property name="dname" value="Sallery Department"></property>
+    </bean>
+</beans>

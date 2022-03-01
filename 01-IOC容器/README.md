@@ -4,7 +4,7 @@
 
 # IOC 容器
 
-## 1、概念和原理
+## 1、IOC 的概念原理
 
 ### 1.1、IOC 是什么？
 
@@ -584,7 +584,7 @@ public Dept getDept() {
 Caused by: org.springframework.beans.NotWritablePropertyException: Invalid property 'dept.dname' of bean class [com.vectorx.spring5.s4_xml.innerbean.Emp]: Nested property in path 'dept.dname' does not exist; nested exception is org.springframework.beans.NotReadablePropertyException: Invalid property 'dept' of bean class [com.vectorx.spring5.s4_xml.innerbean.Emp]: Bean property 'dept' is not readable or has an invalid getter method: Does the return type of the getter match the parameter type of the setter?
 ```
 
-### 4.3、基于 XML 方式注入集合属性
+### 4.4、基于 XML 方式注入集合属性
 
 - 1）注入数组类型属性
 - 2）注入 List 集合类型属性
@@ -704,5 +704,237 @@ public class Stu {
 <bean id="stu2" class="com.vectorx.spring5.s5_xml.collection.Stu">
     <property name="lists" ref="utilList"></property>
 </bean>
+```
+
+
+
+## 5、FactoryBean
+
+Spring 有两种类型 Bean，一种是普通 Bean，另外一种是工厂 Bean（FactoryBean）
+
+- 普通 Bean：在配置文件中定义的 Bean 类型就是返回类型
+- 工厂 Bean：在配置文件中定义的 Bean 类型可以和返回类型不一致
+
+上述的例子都是普通 Bean 的类型，那么工厂 Bean 该怎么实现呢？
+
+- 1）创建类，实现 FactoryBean 接口，使其作为一个工厂 Bean
+- 2）实现接口中的方法，在实现方法中定义返回的 Bean 类型
+
+```java
+public class MyFactoryBean implements FactoryBean<Course> {
+    @Override
+    public Course getObject() throws Exception {
+        Course course = new Course();
+        course.setCname("CourseName");
+        return course;
+    }
+
+    @Override
+    public Class<?> getObjectType() {
+        return null;
+    }
+}
+```
+
+- 3）在 Spring 配置文件中进行配置
+
+```xml
+<bean id="myFactoryBean" class="com.vectorx.spring5.s6_xml.factorybean.MyFactoryBean"></bean>
+```
+
+由于是 FactoryBean，所以再通过上下文获取时，需要使用实现 FactoryBean 时传入的泛型类型进行接收
+
+```java
+ApplicationContext applicationContext = new ClassPathXmlApplicationContext("bean5.xml");
+Course course = applicationContext.getBean("myFactoryBean", Course.class);
+```
+
+如果仍然使用配置文件中定义的 Bean 类型，则会报错
+
+```java
+Exception in thread "main" org.springframework.beans.factory.BeanNotOfRequiredTypeException: Bean named 'myFactoryBean' is expected to be of type 'com.vectorx.spring5.s6_xml.factorybean.MyFactoryBean' but was actually of type 'com.vectorx.spring5.s6_xml.factorybean.Course'
+	at org.springframework.beans.factory.support.AbstractBeanFactory.adaptBeanInstance(AbstractBeanFactory.java:417)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:398)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:213)
+	at org.springframework.context.support.AbstractApplicationContext.getBean(AbstractApplicationContext.java:1160)
+	at com.vectorx.spring5.s6_xml.factorybean.TestFactoryBean.main(TestFactoryBean.java:11)
+```
+
+
+
+## 6、Bean 作用域和生命周期
+
+### 6.1、Bean 作用域
+
+在 Spring 里面，可以设置创建 Bean 的实例是单实例还是多实例，默认情况下是单实例
+
+```xml
+<bean id="book" class="com.vectorx.spring5.s7_xml.setter.Book"></bean>
+```
+
+测试
+
+```java
+ApplicationContext context = new ClassPathXmlApplicationContext("bean6.xml");
+Book book1 = context.getBean("book", Book.class);
+Book book2 = context.getBean("book", Book.class);
+System.out.println(book1 == book2); // true 表示是同一个对象，证明默认情况下是单实例
+```
+
+**如何设置单实例多实例？**
+
+在 Spring 配置文件中 bean 标签里`scope`属性用于设置单实例还是多实例
+
+- 1）`singleton`，单实例，默认情况下不写也是它
+- 2）`prototype`，多实例
+
+```xml
+<bean id="book2" class="com.vectorx.spring5.s7_xml.setter.Book" scope="prototype"></bean>
+```
+
+测试
+
+```java
+Book book3 = context.getBean("book2", Book.class);
+Book book4 = context.getBean("book2", Book.class);
+System.out.println(book3 == book4); // false 表示不是同一个对象，证明scope为prototype时是多实例
+```
+
+**`singleton`和`prototype`的区别**
+
+`singleton`和`prototype`除了单实例和多实例的差别之外，还有以下区别
+
+- 1）设置`scope`值是`singleton`时，加载 Spring 配置文件时就会创建单实例对象
+- 2）设置`scope`值是`prototype`时，加载 Spring 配置文件时不会创建对象，而是在调用`getBean`方法时创建多实例对象
+
+**`scope`的其他值**
+
+`scope`的属性值除了`singleton`和`prototype`之外，其实还有一些属性值，如
+
+- `request`，每个`request`创建一个新的 bean
+- `session`，同一`session`中的 bean 是一样的
+
+不过这两个属性值使用非常少，了解即可
+
+### 6.2、Bean 生命周期
+
+生命周期：从对象创建到对象销毁的过程
+
+Bean 生命周期
+
+- 1）通过构造器创建 Bean 实例（无参构造）
+- 2）为 Bean 属性设置值和对其他 Bean 引用（调用 setter 方法）
+- 3）调用 Bean 的初始化方法（需要进行配置初始化方法）
+- 4）Bean 就可以使用了（对象获取到了）
+- 5）当容器关闭时，调用 Bean 的销毁方法（需要进行配置销毁方法）
+
+代码演示
+
+```java
+public class Orders {
+    public Orders() {
+        System.out.println("Step1.执行无参构造创建Bean实例.");
+    }
+
+    private String oname;
+
+    public void setOname(String oname) {
+        this.oname = oname;
+        System.out.println("Step2.通过setter方法设置属性值.");
+    }
+
+    public void initMethod(){
+        System.out.println("Step3.执行初始化方法.");
+    }
+
+    public void destoryMethod(){
+        System.out.println("Step5.执行销毁方法.");
+    }
+}
+```
+
+Spring 配置文件中的配置
+
+```xml
+<bean id="orders" class="com.vectorx.spring5.s8_xml.lifecycle.Orders" init-method="initMethod"
+      destroy-method="destoryMethod">
+    <property name="oname" value="Phone"></property>
+</bean>
+```
+
+测试
+
+```java
+ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("bean7.xml");
+Orders orders = context.getBean("orders", Orders.class);
+System.out.println("Step4.获取创建Bean实例对象.");
+System.out.println(orders);
+// 手动销毁Bean实例
+context.close();
+```
+
+执行结果
+
+```
+Step1.执行无参构造创建Bean实例.
+Step2.通过setter方法设置属性值.
+Step3.执行初始化方法.
+Step4.获取创建Bean实例对象.
+com.vectorx.spring5.s8_xml.lifecycle.Orders@210366b4
+Step5.执行销毁方法.
+```
+
+Spring 中 Bean 更加完整的生命周期其实不止上述 5 步，另外还有 2 步操作叫做 Bean 的后置处理器
+
+**Bean 后置处理器**
+
+加上 Bean 后置处理器，Bean 生命周期如下
+
+- 1）通过构造器创建 Bean 实例（无参构造）
+- 2）为 Bean 属性设置值和对其他 Bean 引用（调用 setter 方法）
+- <mark>3）把 Bean 的实例传递给 Bean 后置处理器的`postProcessBeforeInitialization`方法</mark>
+- 4）调用 Bean 的初始化方法（需要进行配置初始化方法）
+- <mark>5）把 Bean 的实例传递给 Bean 后置处理器的`postProcessAfterInitialization`方法</mark>
+- 6）Bean 就可以使用了（对象获取到了）
+- 7）当容器关闭时，调用 Bean 的销毁方法（需要进行配置销毁方法）
+
+代码演示
+
+- 1）创建类，实现接口`BeanPostProcessor`，创建后置处理器
+
+```java
+public class MyBeanPost implements BeanPostProcessor {
+    @Override
+    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
+        System.out.println("Step.初始化之前执行的方法");
+        return BeanPostProcessor.super.postProcessBeforeInitialization(bean, beanName);
+    }
+
+    @Override
+    public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+        System.out.println("Step.初始化之后执行的方法");
+        return BeanPostProcessor.super.postProcessAfterInitialization(bean, beanName);
+    }
+}
+```
+
+- 2）Spring 配置文件中配置后置处理器
+
+```xml
+<!--配置后置处理器，会为当前配置文件中所有bean添加后置处理器-->
+<bean id="myBeanPost" class="com.vectorx.spring5.s8_xml.lifecycle.MyBeanPost"></bean>
+```
+
+执行结果
+
+```
+Step1.执行无参构造创建Bean实例.
+Step2.通过setter方法设置属性值.
+Step.初始化之前执行的方法
+Step3.执行初始化方法.
+Step.初始化之后执行的方法
+Step4.获取创建Bean实例对象.
+com.vectorx.spring5.s8_xml.lifecycle.Orders@74e52ef6
+Step5.执行销毁方法.
 ```
 

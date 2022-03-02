@@ -9,5 +9,6 @@
         <property name="oname" value="Phone"></property>
     </bean>
 
+    <!--配置后置处理器，会为当前配置文件中所有bean添加后置处理器-->
     <bean id="myBeanPost" class="com.vectorx.spring5.s8_xml.lifecycle.MyBeanPost"></bean>
 </beans>

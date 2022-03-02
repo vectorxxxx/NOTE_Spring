@@ -151,9 +151,9 @@ public class User{
 
 
 
-## 4、IOC 操作 Bean 管理（基于 XML 方式）
+## 4、基于 XML 方式
 
-### 4.1、基于 XML 方式创建对象
+### 4.1、创建对象
 
 ```xml
 <!--配置User对象-->
@@ -261,7 +261,7 @@ Caused by: java.lang.NoSuchMethodException: com.vectorx.spring5.User.<init>()
 
 就是说：初始化 User 对象失败，因为没有找到默认构造，所以抛出了一个`NoSuchMethodException`异常，即 User 中没有`<init>()`方法
 
-### 4.2、基于 XML 方式注入属性
+### 4.2、注入属性
 
 `DI`：依赖注入，就是注入属性（但需要在创建对象基础上进行）
 
@@ -395,7 +395,7 @@ public class Orders {
 
 需要注意的是：<mark>p 名称空间只能进行属性注入</mark>
 
-### 4.3、基于 XML 方式注入其他类型属性
+### 4.3、注入其他类型属性
 
 #### 1）字面量
 
@@ -584,7 +584,7 @@ public Dept getDept() {
 Caused by: org.springframework.beans.NotWritablePropertyException: Invalid property 'dept.dname' of bean class [com.vectorx.spring5.s4_xml.innerbean.Emp]: Nested property in path 'dept.dname' does not exist; nested exception is org.springframework.beans.NotReadablePropertyException: Invalid property 'dept' of bean class [com.vectorx.spring5.s4_xml.innerbean.Emp]: Bean property 'dept' is not readable or has an invalid getter method: Does the return type of the getter match the parameter type of the setter?
 ```
 
-### 4.4、基于 XML 方式注入集合属性
+### 4.4、注入集合属性
 
 - 1）注入数组类型属性
 - 2）注入 List 集合类型属性
@@ -706,7 +706,83 @@ public class Stu {
 </bean>
 ```
 
+### 4.5、自动装配
 
+自动装配：根据指定装配规则（属性名称或属性类型），Spring 自动将匹配的属性值进行注入
+
+XML 实现自动装配：`bean`标签中有个属性`autowire`，里面有两个常用的属性值
+
+- `byName`根据属性名称注入，要求注入值`bean`的`id`值和类中属性名称一致
+- `byType`根据属性类型注入，要求注入值`bean`的类型在配置文件中只存在一份
+
+1）根据属性名称进行自动注入
+
+```xml
+<bean id="emp" class="com.vectorx.spring5.s9_xml.autowire.Emp" autowire="byName"></bean>
+<bean id="dept" class="com.vectorx.spring5.s9_xml.autowire.Dept"></bean>
+```
+
+2）根据属性类型进行自动注入
+
+```xml
+<bean id="emp" class="com.vectorx.spring5.s9_xml.autowire.Emp" autowire="byType"></bean>
+<bean id="dept" class="com.vectorx.spring5.s9_xml.autowire.Dept"></bean>
+```
+
+### 4.6、外部属性文件
+
+1、直接配置数据库信息
+
+- 1）引入`Druid`连接池依赖`jar`包
+- 2）配置`Druid`连接池
+
+```xml
+<bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource">
+    <property name="driverClassName" value="com.mysql.jdbc.Driver"></property>
+    <property name="url" value="jdbc:mysql://localhost:3306"></property>
+    <property name="username" value="root"></property>
+    <property name="password" value="root"></property>
+</bean>
+```
+
+2、引入外部属性文件配置数据库连接池
+
+- 1）创建`properties`格式的外部属性文件，配置数据库连接信息
+
+
+  ```properties
+  mysql.driverClassName=com.mysql.jdbc.Driver
+  mysql.url=jdbc:mysql://localhost:3306
+  mysql.username=root
+  mysql.password=root
+  ```
+
+- 2）将外部`properties`属性文件引入到 Spring 配置文件中
+
+
+```xml
+<!--引入context名称空间-->
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="
+                           http://www.springframework.org/schema/beans 
+                           http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/context
+                           http://www.springframework.org/schema/context/spring-context.xsd">
+    <!--引入外部属性文件-->
+    <context:property-placeholder location="classpath:jdbc.properties"/>
+    <!--使用Spring表达式配置连接池-->
+    <bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource">
+        <property name="driverClassName" value="${mysql.driverClassName}"></property>
+        <property name="url" value="${mysql.url}"></property>
+        <property name="username" value="${mysql.username}"></property>
+        <property name="password" value="${mysql.password}"></property>
+    </bean>
+</beans>
+```
+
+  
 
 ## 5、FactoryBean
 

@@ -1014,3 +1014,256 @@ com.vectorx.spring5.s8_xml.lifecycle.Orders@74e52ef6
 Step5.执行销毁方法.
 ```
 
+
+
+## 7、注解方式
+
+### 7.1、什么是注解
+
+- 注解是一种代码特殊标记，格式：`@注解名称(属性名称=属性值,属性名称=属性值...)`
+- 注解作用：在类上面，方法上面，属性上面
+- 注解目的：简化 XML 配置
+
+### 7.2、创建对象
+
+- `@Component`
+- `@Service`
+- `@Controller`
+- `@Repository`
+
+上面四个注解功能是一样的，都可以用来创建 Bean 实例
+
+- 1）引入依赖
+
+![image-20220303214201868](https://s2.loli.net/2022/03/03/Q4uYsdUGJBoRkwi.png)
+
+- 2）开启组件扫描
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!--引入context名称空间-->
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+    <!--开启组件扫描:
+        多个包用逗号隔开-->
+    <context:component-scan
+                            base-package="com.vectorx.spring5.s11_annotation.dao,com.vectorx.spring5.s11_annotation.service"></context:component-scan>
+</beans>
+```
+
+- 3）创建类，在类上添加创建对象注解
+
+```java
+/**
+ * value可省略，默认值为类名首字母小写
+ */
+@Component(value = "userService")
+public class UserService {
+    public void add(){
+        System.out.println("UserService add...");
+    }
+}
+```
+
+### 7.3、组件扫描配置
+
+#### 设置扫描
+
+- `use-default-filters`表示现在不使用默认`filter`，自己配置`filter`
+- `include-filter`设置扫描哪些内容
+
+```xml
+<context:component-scan
+                        base-package="com.vectorx.spring5.s11_annotation" use-default-filters="false">
+    <context:include-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+</context:component-scan>
+```
+
+#### 设置不扫描
+
+- 配置扫描包下所有内容
+- `exclude-filter`设置不扫描哪些内容
+
+```xml
+<context:component-scan
+                        base-package="com.vectorx.spring5.s11_annotation">
+    <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+</context:component-scan>
+```
+
+### 7.4、属性注入
+
+- `@Autowired`根据属性类型进行自动装配
+- `@Qualifier`根据属性名称进行注入，需要和`@Autowired`一起使用
+- `@Resource`可以根据类型和名称注入
+- `@Value`根据普通类型注入
+
+#### @Autowired
+
+- 1）创建 Service 和 Dao 对象，在 Service 和 Dao 类上添加创建对象注解
+
+```java
+public interface UserDao {
+    void add();
+}
+@Repository
+public class UserDaoImpl implements UserDao{
+    @Override
+    public void add() {
+        System.out.println("UserDaoImpl add...");
+    }
+}
+@Service
+public class UserService {
+    public void add() {
+        System.out.println("UserService add...");
+    }
+}
+```
+
+- 2）在 Service 类中添加 Dao 类型属性，在属性上面使用注解注入 Dao 对象
+
+```java
+@Service
+public class UserService {
+
+    @Autowired
+    private UserDao userDao;
+
+    public void add() {
+        System.out.println("UserService add...");
+        userDao.add();
+    }
+}
+```
+
+因为`@Autowired`是根据属性类型进行注入的，如果 UserDao 的实现类不止一个，比如新增一个 UserDaoImpl2 类
+
+```java
+@Repository
+public class UserDaoImpl2 implements UserDao {
+    @Override
+    public void add() {
+        System.out.println("UserDaoImpl2 add...");
+    }
+}
+```
+
+那么此时测试程序就会报错
+
+```java
+Exception in thread "main" org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'userService': Unsatisfied dependency expressed through field 'userDao'; nested exception is org.springframework.beans.factory.NoUniqueBeanDefinitionException: No qualifying bean of type 'com.vectorx.spring5.s11_annotation.dao.UserDao' available: expected single matching bean but found 2: userDaoImpl,userDaoImpl2
+...
+Caused by: org.springframework.beans.factory.NoUniqueBeanDefinitionException: No qualifying bean of type 'com.vectorx.spring5.s11_annotation.dao.UserDao' available: expected single matching bean but found 2: userDaoImpl,userDaoImpl2
+...
+```
+
+大概意思就是说，主程序抛出了一个`UnsatisfiedDependencyException`即*不满足依赖异常*，嵌套异常是`NoUniqueBeanDefinitionException`即*Bean定义不唯一异常*，预期匹配单个 Bean 但是找到了两个 Bean
+
+此时想要指定装配某一个实现类，就需要用到`@Qualifier`注解
+
+#### @Qualifier
+
+书接上回，如果我们想要从多个实现类中装配具体某一个实现类，可以这么写
+
+```java
+@Autowired
+@Qualifier(value = "userDaoImpl")
+private UserDao userDao;
+```
+
+其中`value`值为具体的实现类上配置的注解中`value`值
+
+```java
+@Repository
+public class UserDaoImpl implements UserDao{
+    @Override
+    public void add() {
+        System.out.println("UserDaoImpl add...");
+    }
+}
+@Repository
+public class UserDaoImpl2 implements UserDao {
+    @Override
+    public void add() {
+        System.out.println("UserDaoImpl2 add...");
+    }
+}
+```
+
+由于上述例子中，我们没有对`@Repository`配置相应的`value`，所以默认为*首字母小写的类名*
+
+如果想使用 UserDaoImpl2 类，则
+
+```java
+@Autowired
+@Qualifier(value = "userDaoImpl2")
+private UserDao userDao;
+```
+
+如果指定名称有误，即不存在名称为`value`对应的类，则会报`NoSuchBeanDefinitionException`异常，即找不到对应类
+
+```java
+Exception in thread "main" org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'userService': Unsatisfied dependency expressed through field 'userDao'; nested exception is org.springframework.beans.factory.NoSuchBeanDefinitionException: No qualifying bean of type 'com.vectorx.spring5.s11_annotation.dao.UserDao' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {@org.springframework.beans.factory.annotation.Autowired(required=true), @org.springframework.beans.factory.annotation.Qualifier(value=userDaoImpl1)}
+...
+Caused by: org.springframework.beans.factory.NoSuchBeanDefinitionException: No qualifying bean of type 'com.vectorx.spring5.s11_annotation.dao.UserDao' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {@org.springframework.beans.factory.annotation.Autowired(required=true), @org.springframework.beans.factory.annotation.Qualifier(value=userDaoImpl1)}
+```
+
+#### @Resource
+
+- 根据类型注入
+
+```java
+@Resource
+private UserDao userDao;
+```
+
+- 根据名称注入
+
+```java
+@Resource(name = "userDaoImpl")
+private UserDao userDao;
+```
+
+需要注意的是`@Resource`注解所在包为`javax.annotation`即 Java 扩展包，所以 Spring 官方不建议使用该注解而推崇`@Autowired`和`@Qualifier`注解
+
+#### @Value
+
+上述注解都是对对象类型的属性进行注入，如果想要装配普通类型属性，如基本数据类型及其包装类等，则可以需要使用`@Value`注解
+
+```java
+@Value(value = "vector")
+private String name;
+@Value(value = "100")
+private Integer age;
+@Value(value = "200.0d")
+private Double length;
+@Value(value = "true")
+private boolean isOk;
+@Value(value = "0,a,3,6,test")
+private String[] arrs;
+```
+
+### 7.5、完全注解开发
+
+- 1）创建配置类，替代 XML 配置文件
+
+```java
+@Configuration
+@ComponentScan(basePackages = "com.vectorx.spring5.s11_annotation")
+public class SpringConfig {
+}
+```
+
+- 2）编写测试类
+
+```java
+ApplicationContext context = new AnnotationConfigApplicationContext(SpringConfig.class);
+UserService userService = context.getBean("userService", UserService.class);
+userService.add();
+```
+
+与之前的不同点就是用`AnnotationConfigApplicationContext`代替了`ClassPathXmlApplicationContext`对象

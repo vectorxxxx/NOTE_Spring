@@ -28,4 +28,13 @@ public class Book {
     public void setBstatus(String bstatus) {
         this.bstatus = bstatus;
     }
+
+    @Override
+    public String toString() {
+        return "Book{" +
+                "bid='" + bid + '\'' +
+                ", bname='" + bname + '\'' +
+                ", bstatus='" + bstatus + '\'' +
+                '}';
+    }
 }

@@ -571,3 +571,317 @@ bookService.batchDelBook(bookList);
   - `RowMapper<T> rowMapper`：接口，具体实现类`BeanPropertyRowMapper`，封装对象实体
 - 批量操作：`batchUpdate()`方法
 
+
+
+## 2、事务
+
+### 2.1、事务概念
+
+- 1）事务是数据库操作的最基本单元，是逻辑上的一组操作。这一组操作，要么都成功，要么都失败（只要有一个操作失败，所有操作都失败）
+- 2）典型场景：银行转账。Lucy 转账 100 元给 Mary，Lucy 少 100，Mary 多 100。转账过程中若出现任何问题，双方都不会多钱或少钱，转账就不会成功
+
+### 2.2、事务四个特性（ACID）
+
+- 原子性（**A**tomicity）：一个事务中的所有操作，要么都成功，要么都失败，整个过程不可分割
+- 一致性（**C**onsistency）：事务操作之前和操作之后，总量保持不变
+- 隔离性（**I**solation）：多事务操作时，相互之间不会产生影响
+- 持久性（**D**urability）：事务最终提交后，数据库表中数据才会真正发生变化
+
+### 2.3、搭建事务操作环境
+
+我们知道 JavaEE 中的三层架构分为：表示层（`web`层）、业务逻辑层（`service`层）、数据访问层（`dao`层）
+
+- `web`层：与客户端进行交互
+- `service`层：处理业务逻辑
+- `dao`层：与数据库进行交互
+
+因此，我们搭建操作环境也按照典型的三层架构来实现，不过目前现阶段我们只关注`Service`和`Dao`两层
+
+![image-20220308195154702](https://s2.loli.net/2022/03/08/hsX2AgEaPbSK8dj.png)
+
+我们以银行转账为例，因为整个转账操作包括两个操作：出账的操作和入账的操作
+
+**过程概览**
+
+- 1）创建数据库表结构，添加几条记录
+- 2）创建`Service`和`Dao`类，完成对象创建和关系注入
+- 3）`Dao`中创建两个方法：出账的方法、入账的方法；`Service`中创建转账的方法
+
+**过程详解**
+
+**1）**创建数据库表结构，添加几条记录
+
+```sql
+# 建表语句
+create table t_account
+(
+    id       varchar(20) not null,
+    username varchar(50) null,
+    amount   int         null,
+    constraint transfer_record_pk
+        primary key (id)
+);
+# 添加语句
+INSERT INTO book_db.t_account (id, username, amount) VALUES ('1', 'Lucy', 1000);
+INSERT INTO book_db.t_account (id, username, amount) VALUES ('2', 'Mary', 1000);
+```
+
+添加完成效果
+
+![image-20220308201554346](https://s2.loli.net/2022/03/08/rAOuq8Ml7kaE3ZJ.png)
+
+**2）**创建`Service`和`Dao`类，完成对象创建和关系注入
+
+`Service`中注入`Dao`，`Dao`中注入`JdbcTemplate`，`JdbcTemplate`中注入`DataSource`
+
+`Service`和`Dao`类
+
+```java
+public interface TransferRecordDao {
+}
+@Repository
+public class TransferRecordDaoImpl implements TransferRecordDao {
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+}
+@Service
+public class TransferRecordService {
+    @Autowired
+    private TransferRecordDao transferRecordDao;
+}
+```
+
+Spring 配置文件
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+    <!--开启注解扫描-->
+    <context:component-scan base-package="com.vectorx.spring5.s16_transaction"/>
+    <!--配置dataSource-->
+    <context:property-placeholder location="classpath:jdbc.properties"/>
+    <bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource">
+        <property name="driverClassName" value="${mysql.driverClassName}"/>
+        <property name="url" value="${mysql.url}"/>
+        <property name="username" value="${mysql.username}"/>
+        <property name="password" value="${mysql.password}"/>
+    </bean>
+    <!--配置JdbcTemplate-->
+    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <!--属性注入dataSource-->
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+</beans>
+```
+
+**3）**`Dao`中创建两个方法：出账的方法、入账的方法；`Service`中创建转账的方法
+
+- `Dao`负责数据库操作，所以需要创建两个方法：出账的方法、入账的方法
+
+```java
+public interface TransferRecordDao {
+    void transferOut(int amount, String username);
+    void transferIn(int amount, String username);
+}
+@Repository
+public class TransferRecordDaoImpl implements TransferRecordDao {
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Override
+    public void transferOut(int amount, String username) {
+        String sql = "update t_account set amount=amount-? where username=?";
+        Object[] args = {amount, username};
+        jdbcTemplate.update(sql, args);
+    }
+    @Override
+    public void transferIn(int amount, String username) {
+        String sql = "update t_account set amount=amount+? where username=?";
+        Object[] args = {amount, username};
+        jdbcTemplate.update(sql, args);
+    }
+}
+```
+
+- `Service`负责业务操作，所以需要创建一个方法，来调用`Dao`中两个方法
+
+```java
+@Service
+public class TransferRecordService {
+    @Autowired
+    private TransferRecordDao transferRecordDao;
+
+    public void transferAccounts(int amount, String fromUser, String toUser) {
+        transferRecordDao.transferOut(amount, fromUser);
+        transferRecordDao.transferIn(amount, toUser);
+    }
+}
+```
+
+测试代码
+
+```java
+ApplicationContext context = new ClassPathXmlApplicationContext("bean14.xml");
+TransferRecordService transferRecordService = context.getBean("transferRecordService", TransferRecordService.class);
+transferRecordService.transferAccounts(100, "Lucy", "Mary");
+```
+
+测试结果
+
+![image-20220308205044804](https://s2.loli.net/2022/03/08/djR3QoVOblLS7c5.png)
+
+可以发现，转账如期完成了。但真的没有一点问题么？
+
+### 2.4、引入事务场景
+
+我们模拟下在转账中途发生网络异常，修改`TransferRecordService`中转账方法
+
+```java
+public void transferAccounts(int amount, String fromUser, String toUser) {
+    transferRecordDao.transferOut(amount, fromUser);
+    //模拟网络异常而导致操作中断
+    int i = 10 / 0;
+    transferRecordDao.transferIn(amount, toUser);
+}
+```
+
+为了更清晰直观地看到数据的变化，我们还原数据表数据到最初状态
+
+![image-20220308205938035](https://s2.loli.net/2022/03/08/zVF7b5RdXPyJZ2l.png)
+
+按照期望，转账应该失败，即双方账户不应该有任何变化。事实真的能够如我们所料么？
+
+我们执行测试方法，如期抛出异常
+
+```java
+Exception in thread "main" java.lang.ArithmeticException: / by zero
+    at com.vectorx.spring5.s16_transaction.service.TransferRecordService.transferAccounts(TransferRecordService.java:15)
+    at com.vectorx.spring5.s16_transaction.TestTransfer.main(TestTransfer.java:11)
+```
+
+那数据表是否也如期变化呢？
+
+![image-20220308210254891](https://s2.loli.net/2022/03/08/uogKOIvxQhl3d9L.png)
+
+我们发现，`Lucy`虽然成功转出了 100 元，但`Mary`没有成功到账 100 元。从现实的角度来说，这个问题很严重！！！
+
+从事务的角度来说，这个转账操作没有遵循事务的原子性、一致性，即没有做到“要么都成功，要么都失败”，也没有做到“操作前后的总量不变”
+
+综上所述，我们需要引入事务
+
+### 2.5、事务基本操作
+
+事务的基本操作过程如下
+
+- Step1、开启一个事务
+- Step2、进行业务逻辑实现
+- Step3、没有异常，则提交事务
+- Step4、发生异常，则回滚事务
+
+事务的一般实现如下
+
+```java
+try {
+    // Step1、开启一个事务
+    // Step2、进行业务逻辑实现
+    transferRecordDao.transferOut(amount, fromUser);
+    //模拟网络异常而导致操作中断
+    int i = 10 / 0;
+    transferRecordDao.transferIn(amount, toUser);
+    // Step3、没有异常，则提交事务
+} catch (Exception e) {
+    // Step4、发生异常，则回滚事务
+}
+```
+
+不过，在 Spring 框架中提供了更方便的方式实现事务。“欲知后事如何，且听下回分解”
+
+### 小结
+
+本小结主要内容关键点
+
+- 事务的基本概念：数据库操作的基本单元，逻辑上的一组操作，要么都成功，要么都失败
+- 事务的四个基本特性：ACID，即原子性、一致性、隔离性和持久性
+
+
+
+## 3、声明式事务
+
+### 3.1、Spring事务管理
+
+事务一般添加到三层结构中的`Service`层（业务逻辑层）
+
+在 Spring 中进行事务管理操作有两种方式：<mark>编程式事务管理</mark>和<mark>声明式事务管理</mark>
+
+- 编程式事务管理（不推荐）：上述事务的一般实现就是典型的编程式事务管理实现。但这种方式虽然并不好，但仍然需要我们有一定的了解，知道有这么一个过程即可。一般不推荐使用这种方式，主要原因如下
+  - 1）实现不方便
+  - 2）造成代码臃肿
+  - 3）维护起来麻烦
+- 声明式事务管理（推荐使用）：底层原理就是`AOP`，就是在不改变原代码基础上，扩展代码功能。有两种实现方式
+  - 基于注解方式（推荐方式）
+  - 基于XML配置文件方式
+
+### 3.2、Spring事务管理API
+
+提供了一个接口，代表事务管理器，针对不同框架存在不同实现类
+
+![image-20220308214543681](https://s2.loli.net/2022/03/08/IDQY1ue4BTSLwtW.png)
+
+主要掌握
+
+- `PlatformTransactionManager`接口：即事务管理器，有多个不同的抽象类和具体实现类，可满足不同的框架
+- `DataSourceTrasactionManager`实现类：`JdbcTemplate`和`MyBatis`框架使用到它
+- `HibernateTransactionManager`实现类：`Hibernate`框架使用到它
+
+### 3.3、声明式事务（注解方式）
+
+- 1）在 Spring 配置文件中配置事务管理器：配置`DataSourceTransactionManager`对象创建
+
+```xml
+<!--配置事务管理器-->
+<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+    <property name="dataSource" ref="dataSource"></property>
+</bean>
+```
+
+- 2）在 Spring 配置文件中开启事务：引入`xmlns:tx`的名称空间，并配置`<tx:annotation-driven/>`标签以开启事务
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+                           http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd">
+    <!--其他配置信息略-->
+    <!--开启事务-->
+    <tx:annotation-driven/>
+</beans>
+```
+
+- 3）在`Service`（或`Service`的方法）上添加事务注解`@Transactional`
+
+```java
+@Service
+@Transactional
+public class TransferRecordService {
+    //...
+}
+```
+
+首先还原数据表信息至初始状态
+
+![image-20220308221649689](https://s2.loli.net/2022/03/08/lbWkLeNT67x5yKD.png)
+
+测试代码后刷新数据表
+
+![image-20220308221649689](https://s2.loli.net/2022/03/08/lbWkLeNT67x5yKD.png)
+
+这一次数据没有发生变化，说明事务回滚了，符合我们预期
+
+### 3.4、声明式事务（XML方式）

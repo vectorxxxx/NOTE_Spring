@@ -79,7 +79,7 @@ public class BookDaoImpl implements BookDao {
         extractBatch(sql, bookList);
     }
 
-    private void extractBatch(String sql, List<Object[]> bookList,) {
+    private void extractBatch(String sql, List<Object[]> bookList) {
         int[] ints = jdbcTemplate.batchUpdate(sql, bookList);
         System.out.println(ints);
     }

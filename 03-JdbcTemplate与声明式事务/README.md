@@ -884,4 +884,356 @@ public class TransferRecordService {
 
 这一次数据没有发生变化，说明事务回滚了，符合我们预期
 
-### 3.4、声明式事务（XML方式）
+### 3.4、事务参数
+
+在`Service`类上面添加注解`@Transactional`，在这个注解里面可以配置事务相关参数
+
+![image-20220309201640259](https://s2.loli.net/2022/03/09/42ncr6mtsbLGFvg.png)
+
+主要介绍参数有
+
+- `propagation`：事务传播行为
+- `isolation`：事务隔离级别
+- `timeout`：超时时间
+- `readOnly`：是否只读
+- `rollbackFor`：回滚
+- `noRollbackFor`：不回滚
+
+### 3.5、传播行为
+
+- **事务传播行为**：多事务方法直接进行调用，这个过程中事务是如何进行管理的
+- **事务方法**：让数据表数据发生变化的操作
+
+事务的传播行为可以有传播属性指定。Spring 框架中定义了 7 种类传播行为：
+
+| 传播属性        | 描述                                                         |
+| :-------------- | :----------------------------------------------------------- |
+| `REQUIRED`      | 如果有事务在运行，当前方法就在此事务内运行；否则，就启动一个新的事务，并在自己的事务内运行 |
+| `REQUIRED_NEW`  | 当前方法必须启动新事务，并在它自己的事务内运行；如果有事务正在运行，应该将它挂起 |
+| `SUPPORTS`      | 如果有事务在运行，当前方法就在此事务内运行；否则，它可以不运行在事务中 |
+| `NOT_SOPPORTED` | 当前方法不应该运行在事务内部，如果有运行的事务，就将它挂起   |
+| `MANDATORY`     | 当前方法必须运行在事务内部，如果没有正在运行的事务，就抛出异常 |
+| `NEVER`         | 当前方法不应该运行在事务中，如果有运行的事务，就抛出异常     |
+| `NESTED`        | 如果有事务在运行，当前方法就应该在此事务的嵌套事务内运行；否则，就启动一个新的事务，并在它自己的事务内运行 |
+
+举个例子：定义两个方法`add()`和`update()`
+
+```java
+@Transactional
+public void add(){
+    // 调用update方法
+    update();
+}
+public void update(){
+    // do something
+}
+```
+
+则按照不同的传播属性，可以有以下解释
+
+- `REQUIRED`
+  - 如果`add()`方法本身有事务，调用`update()`方法之后，`update()`使用当前`add()`方法里面事务；
+  - 如果`add()`方法本身没有事务，调用`update()`方法之后，创建新的事务
+- `REQUIRED_NEW`
+  - 使用`add()`方法调用`update()`方法，无论`add()`是否有事务，都创建新的事务
+
+**代码实现**
+
+```java
+@Service
+@Transactional(propagation = Propagation.REQUIRED)
+public class TransferRecordService {
+    //...
+}
+```
+
+等价于
+
+```java
+@Service
+@Transactional
+public class TransferRecordService {
+    //...
+}
+```
+
+即默认不写，其事务传播行为就是使用的`REQUIRED`
+
+### 3.6、隔离级别
+
+在事务的四个特性中，隔离性（`isolation`）指的是多事务之间互不影响。不考虑隔离性，在并发时会产生一系列问题
+
+有三个典型的“读”的问题：<mark>脏读、不可重复读、虚（幻）读</mark>
+
+- **脏读**：一个未提交事务读取到了另一个未提交事务修改的数据
+
+![image-20220309210526701](https://s2.loli.net/2022/03/09/XNTP5Kwz3hGW1vp.png)
+
+- **不可重复读**：一个未提交事务读取到了另一个已提交事务修改的数据（不能算问题，只是算现象）
+
+![image-20220309210823168](https://s2.loli.net/2022/03/09/MbpwgBudcGKx7rJ.png)
+
+- **虚（幻）读**：一个未提交事务读取到了另一个已提交事务添加的数据
+
+通过设置隔离级别，可以解决上述“读”的问题
+
+| 事务隔离级别                   | 脏读 | 不可重复读 | 幻读 |
+| :----------------------------- | :--: | :--------: | :--: |
+| `READ UNCOMMITTED`（读未提交） |  √   |     √      |  √   |
+| `READ COMMITTED`（读已提交）   |  ×   |     √      |  √   |
+| `REPEATABLE READ`（可重复读）  |  ×   |     ×      |  √   |
+| `SERIALIZABLE`（串行化）       |  ×   |     ×      |  ×   |
+
+**代码实现**
+
+```java
+@Service
+@Transactional(isolation = Isolation.REPEATABLE_READ)
+public class TransferRecordService {
+    //...
+}
+```
+
+小课堂：MySQL 中默认事务隔离级别为`REPEATABLE READ`（可重复读）
+
+### 3.7、其他参数
+
+- `timeout`：设置事务超时时间。事务需要在一定的时间内进行提交，若设定时间内事务未完成提交，则对事务进行回滚。默认值为`-1`，设置时间以秒为单位
+
+```java
+@Service
+@Transactional(timeout = 5)
+public class TransferRecordService {
+    @Autowired
+    private TransferRecordDao transferRecordDao;
+
+    public void transferAccounts(int amount, String fromUser, String toUser) {
+        transferRecordDao.transferOut(amount, fromUser);
+        //模拟处理超时
+        try {
+            Thread.sleep(6000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        transferRecordDao.transferIn(amount, toUser);
+    }
+}
+```
+
+设置超时时间后，执行测试代码，则日志信息会抛出`TransactionTimedOutException`即**事务超时异常**
+
+```java
+Exception in thread "main" org.springframework.transaction.TransactionTimedOutException: Transaction timed out: deadline was Wed Mar 09 21:30:33 CST 2022
+    at org.springframework.transaction.support.ResourceHolderSupport.checkTransactionTimeout(ResourceHolderSupport.java:155)
+    at org.springframework.transaction.support.ResourceHolderSupport.getTimeToLiveInMillis(ResourceHolderSupport.java:144)
+    at org.springframework.transaction.support.ResourceHolderSupport.getTimeToLiveInSeconds(ResourceHolderSupport.java:128)
+    at org.springframework.jdbc.datasource.DataSourceUtils.applyTimeout(DataSourceUtils.java:341)
+...	
+```
+
+- `readOnly`：是否只读。
+  - 默认值为`false`，表示读写操作都允许，可以进行增、删、改、查等操作；
+  - 可设置为`true`，表示只允许读操作，即只能进行查询操作
+
+```java
+@Service
+@Transactional(readOnly = true)
+public class TransferRecordService {
+    //...
+}
+```
+
+设置只读后，执行测试代码，则日志信息会抛出`TransientDataAccessResourceException`即**瞬态数据访问资源异常**，同时还会抛出`SQLException`，并指出“连接是只读的，查询导致数据修改是不允许的”
+
+```java
+Exception in thread "main" org.springframework.dao.TransientDataAccessResourceException: PreparedStatementCallback; SQL [update t_account set amount=amount-? where username=?]; Connection is read-only. Queries leading to data modification are not allowed; nested exception is java.sql.SQLException: Connection is read-only. Queries leading to data modification are not allowed
+	...
+Caused by: java.sql.SQLException: Connection is read-only. Queries leading to data modification are not allowed
+    ...
+```
+
+- `rollbackFor`：设置出现哪些异常才进行回滚
+
+```java
+@Service
+@Transactional(rollbackFor = ArithmeticException.class)
+public class TransferRecordService {
+    @Autowired
+    private TransferRecordDao transferRecordDao;
+
+    public void transferAccounts(int amount, String fromUser, String toUser) {
+        transferRecordDao.transferOut(amount, fromUser);
+        //模拟网络异常而导致操作中断
+        int i = 10 / 0;
+        transferRecordDao.transferIn(amount, toUser);
+    }
+}
+```
+
+上述代码表明，只有在抛出的异常为`ArithmeticException`时，才会进行事务的回滚操作
+
+此时运行测试代码，后台会抛出`ArithmeticException`异常，因此会进行回滚，转账过程不会成功
+
+此时数据库中的数据，就不会有任何变化
+
+![image-20220308221649689](https://s2.loli.net/2022/03/09/z8NyqRbflHhaPCK.png)
+
+- `noRollbackFor`：设置出现哪些异常不进行回滚
+
+```java
+@Service
+@Transactional(noRollbackFor = ArithmeticException.class)
+public class TransferRecordService {
+    @Autowired
+    private TransferRecordDao transferRecordDao;
+
+    public void transferAccounts(int amount, String fromUser, String toUser) {
+        transferRecordDao.transferOut(amount, fromUser);
+        //模拟网络异常而导致操作中断
+        int i = 10 / 0;
+        transferRecordDao.transferIn(amount, toUser);
+    }
+}
+```
+
+因为设置了`noRollbackFor = ArithmeticException.class`，即表示抛出`ArithmeticException`异常时不会进行回滚
+
+此时运行测试代码，后台会抛出`ArithmeticException`异常，但不会进行回滚，转账事务中只有出账操作会成功
+
+```java
+Exception in thread "main" java.lang.ArithmeticException: / by zero
+```
+
+此时数据库中的数据，就会是下面情况（显然，这并不是我们想要的）
+
+![image-20220309215806414](https://s2.loli.net/2022/03/09/z91mdZWXBLIuDKT.png)
+
+### 3.8、声明式事务（XML方式）
+
+- Step1、配置事务管理器
+
+```xml
+<!--配置事务管理器-->
+<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+    <property name="dataSource" ref="dataSource"></property>
+</bean>
+```
+
+- Step2、配置事务通知
+
+```xml
+<!--1、配置事务通知-->
+<tx:advice id="txAdvice">
+    <tx:attributes>
+        <tx:method name="transferAccounts" propagation="REQUIRED" isolation="REPEATABLE_READ" read-only="false"
+                   timeout="5" rollback-for="java.lang.ArithmeticException"/>
+    </tx:attributes>
+</tx:advice>
+```
+
+- Step3、配置切入点和切面
+
+```xml
+<!--2、配置切入点和切面-->
+<aop:config>
+    <aop:pointcut id="p"
+                  expression="execution(* com.vectorx.spring5.s17_transaction_xml.service.TransferRecordService.*(..))"/>
+    <aop:advisor advice-ref="txAdvice" pointcut-ref="p"></aop:advisor>
+</aop:config>
+```
+
+Spring 配置文件整体内容
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+                           http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
+                           http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+    <!--配置dataSource-->
+    <context:property-placeholder location="classpath:jdbc.properties"/>
+    <bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource">
+        <property name="driverClassName" value="${mysql.driverClassName}"/>
+        <property name="url" value="${mysql.url}"/>
+        <property name="username" value="${mysql.username}"/>
+        <property name="password" value="${mysql.password}"/>
+    </bean>
+
+    <!--配置JdbcTemplate-->
+    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <!--属性注入dataSource-->
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+
+    <!--配置事务管理器-->
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+
+    <!--配置Dao创建和属性注入-->
+    <bean id="transferRecordDao" class="com.vectorx.spring5.s17_transaction_xml.dao.TransferRecordDaoImpl">
+        <property name="jdbcTemplate" ref="jdbcTemplate"></property>
+    </bean>
+
+    <!--配置Service创建和属性注入-->
+    <bean id="transferRecordService" class="com.vectorx.spring5.s17_transaction_xml.service.TransferRecordService">
+        <property name="transferRecordDao" ref="transferRecordDao"></property>
+    </bean>
+
+    <!--1、配置事务通知-->
+    <tx:advice id="txAdvice">
+        <tx:attributes>
+            <tx:method name="transferAccounts" propagation="REQUIRED" isolation="REPEATABLE_READ" read-only="false"
+                       timeout="5" rollback-for="java.lang.ArithmeticException"/>
+        </tx:attributes>
+    </tx:advice>
+
+    <!--2、配置切入点和切面-->
+    <aop:config>
+        <aop:pointcut id="p"
+                      expression="execution(* com.vectorx.spring5.s17_transaction_xml.service.TransferRecordService.*(..))"/>
+        <aop:advisor advice-ref="txAdvice" pointcut-ref="p"></aop:advisor>
+    </aop:config>
+</beans>
+```
+
+对`Service`和`Dao`类去除注解，并对代码稍作修改
+
+```java
+public class TransferRecordDaoImpl implements TransferRecordDao {
+    private JdbcTemplate jdbcTemplate;
+
+    public void setJdbcTemplate(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+    //...
+}
+public class TransferRecordService {
+    private TransferRecordDao transferRecordDao;
+
+    public void setTransferRecordDao(TransferRecordDao transferRecordDao) {
+        this.transferRecordDao = transferRecordDao;
+    }
+    //...
+}
+```
+
+**运行测试代码**
+
+后台结果
+
+```java
+Exception in thread "main" java.lang.ArithmeticException: / by zero
+```
+
+数据库结果
+
+![image-20220308221649689](https://s2.loli.net/2022/03/09/vh6obZc7uBwU4pO.png)
+
+### 

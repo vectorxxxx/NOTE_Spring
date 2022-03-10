@@ -1,5 +1,3 @@
-> 
->
 > 笔记来源：[尚硅谷Spring框架视频教程（spring5源码级讲解）](https://www.bilibili.com/video/BV1Vf4y127N5)
 
 [TOC]
@@ -848,7 +846,7 @@ try {
 </bean>
 ```
 
-- 2）在 Spring 配置文件中开启事务：引入`xmlns:tx`的名称空间，并配置`<tx:annotation-driven/>`标签以开启事务
+- 2）在 Spring 配置文件中开启事务：引入`xmlns:tx`的名称空间，并配置`<tx:annotation-driven>`标签以开启事务注解
 
 ```xml
 <beans xmlns="http://www.springframework.org/schema/beans"
@@ -859,8 +857,8 @@ try {
                            http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
                            http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd">
     <!--其他配置信息略-->
-    <!--开启事务-->
-    <tx:annotation-driven/>
+    <!--开启事务注解-->
+    <tx:annotation-driven transaction-manager="transactionManager"></tx:annotation-driven>
 </beans>
 ```
 
@@ -1236,4 +1234,139 @@ Exception in thread "main" java.lang.ArithmeticException: / by zero
 
 ![image-20220308221649689](https://s2.loli.net/2022/03/09/vh6obZc7uBwU4pO.png)
 
-### 
+### 3.9、完全注解开发
+
+```java
+// 表示此类为配置类
+@Configuration
+// 自动扫描包
+@ComponentScan(basePackages = "com.vectorx.spring5.s18_transaction_annotation")
+// 开启事务
+@EnableTransactionManagement
+// 读取外部配置文件
+@PropertySource(value = {"classpath:jdbc.properties"})
+public class TxConfig {
+    @Value(value = "${mysql.driverClassName}")
+    private String driverClassName;
+    @Value(value = "${mysql.url}")
+    private String url;
+    @Value(value = "${mysql.username}")
+    private String username;
+    @Value(value = "${mysql.password}")
+    private String password;
+
+    //配置dataSource
+    @Bean
+    public DruidDataSource getDruidDataSource() {
+        DruidDataSource dataSource = new DruidDataSource();
+        dataSource.setDriverClassName(driverClassName);
+        dataSource.setUrl(url);
+        dataSource.setUsername(username);
+        dataSource.setPassword(password);
+        return dataSource;
+    }
+
+    //配置JdbcTemplate
+    @Bean
+    public JdbcTemplate getJdbcTemplate(DataSource dataSource) {
+        //IOC容器会根据类型找到对应DataSource
+        JdbcTemplate jdbcTemplate = new JdbcTemplate();
+        jdbcTemplate.setDataSource(dataSource);
+        return jdbcTemplate;
+    }
+
+    //配置事务管理器
+    @Bean
+    public DataSourceTransactionManager getDataSourceTransactionManager(DataSource dataSource) {
+        DataSourceTransactionManager transactionManager = new DataSourceTransactionManager();
+        transactionManager.setDataSource(dataSource);
+        return transactionManager;
+    }
+}
+```
+
+这里我们对各个注解进行一一说明
+
+- `@Configuration`：表示此类为一个配置类，其作用等同于创建一个`bean.xml`，即
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+</beans>
+```
+
+- `@ComponentScan`：自动扫描包，`basePackages`属性配置为需要扫描的包路径，等价于`<context:component-scan>`标签，即
+
+```xml
+<!--开启注解扫描-->
+<context:component-scan base-package="com.vectorx.spring5.s18_transaction_annotation"/>
+```
+
+- `@EnableTransactionManagement`：开启事务管理，等价于`<tx:annotation-driven>`标签，即
+
+```xml
+<!--开启事务注解-->
+<tx:annotation-driven transaction-manager="transactionManager"></tx:annotation-driven>
+```
+
+- `@PropertySource`：引入外部文件，`value`配置外部文件路径，等价于`<context:property-placeholder>`标签
+
+```xml
+<context:property-placeholder location="classpath:jdbc.properties"/>
+```
+
+- `@Value`：对普通类型的属性进行注入，同时其属性值可以使用`${}`表达式对外部文件配置信息进行获取
+- `@Bean`：配置对象创建，等价于`<bean>`标签。可以在被修饰的方法参数列表中传入受IOC容器管理的类型，IOC容器会自动根据类型找到对应对象并注入到此方法中。因此无论是配置JdbcTemplate还是配置事务管理器，都可以使用这种方式对外部Bean进行引用
+
+```java
+//配置JdbcTemplate
+@Bean
+public JdbcTemplate getJdbcTemplate(DataSource dataSource) {...}
+//配置事务管理器
+@Bean
+public DataSourceTransactionManager getDataSourceTransactionManager(DataSource dataSource) {...}
+```
+
+**测试代码**
+
+需要注意的是，之前创建的对象是`ClassPathXmlApplicationContext`，而现在是完全注解开发，所以需要创建的对象是`AnnotationConfigApplicationContext`，构造参数中传入配置类的`class`类型即可，其他代码与之前一致
+
+```java
+ApplicationContext context = new AnnotationConfigApplicationContext(TxConfig.class);
+TransferRecordService transferRecordService = context.getBean("transferRecordService", TransferRecordService.class);
+transferRecordService.transferAccounts(100, "Lucy", "Mary");
+```
+
+**测试结果**
+
+![image-20220310222153299](https://s2.loli.net/2022/03/10/57BxlHsi6zJtPdZ.png)
+
+### 小结
+
+重点掌握
+
+- Spring事务管理两种方式：<mark>编程式事务管理</mark>（不推荐）、<mark>声明式事务管理</mark>（推荐）
+- Spring事务管理API：`PlatformTransactionManager`、`DataSourceTrasactionManager`、`HibernateTransactionManager`
+- 声明式事务两种实现方式：<mark>注解方式</mark>和<mark>XML方式</mark>
+- 事务相关参数有：<mark>传播行为、隔离级别、超时时间、是否只读、（不）回滚</mark>
+  - 传播行为：有7种传播属性，`REQUIRED`、`REQUIRED_NEW`、`SUPPORTS`、`NOT_SOPPORTED`、`MANDATORY`、`NEVER`、`NESTED`
+  - 隔离级别：有3种典型“读”的问题，<mark>脏读、不可重复读、虚（幻）读</mark>，可设置4种隔离级别，`READ UNCOMMITTED`、`READ COMMITTED`、`REPEATABLE READ`、`SERIALIZABLE`
+  - 其他参数：`timeout`、`readOnly`、`rollbackFor`、`noRollbackFor`
+- 声明式事务（注解方式）：`@Transactional`
+- 声明式事务（XML方式）：配置事务管理器；配置事务通知`<tx:advice>`；配置切入点和切面
+- 完全注解开发：`@EnableTransactionManagement`、`@Bean`、`AnnotationConfigApplicationContext`
+
+
+
+## 总结
+
+1. `JdbcTemplate`的`CRUD`操作
+2. 事务`ACID`特性、Spring事务管理
+3. 声明式事务的注解方式和XML方式
+4. 事务相关属性：传播行为、隔离级别、其他参数
+
+下面思维导图经供参考
+
+![03-JdbcTemplate与声明式事务](https://s2.loli.net/2022/03/10/aYFXR3VmHZAeNhE.png)

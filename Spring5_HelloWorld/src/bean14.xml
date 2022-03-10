@@ -30,6 +30,6 @@ http://www.springframework.org/schema/tx http://www.springframework.org/schema/t
         <property name="dataSource" ref="dataSource"></property>
     </bean>
 
-    <!--开启事务-->
-    <tx:annotation-driven/>
+    <!--开启事务注解-->
+    <tx:annotation-driven transaction-manager="transactionManager"></tx:annotation-driven>
 </beans>

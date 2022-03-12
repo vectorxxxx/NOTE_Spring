@@ -22,7 +22,7 @@ public class TransferRecordService {
     public void transferAccounts(int amount, String fromUser, String toUser) {
         transferRecordDao.transferOut(amount, fromUser);
         //模拟网络异常而导致操作中断
-        //int i = 10 / 0;
+        int i = 10 / 0;
         transferRecordDao.transferIn(amount, toUser);
     }
 }
